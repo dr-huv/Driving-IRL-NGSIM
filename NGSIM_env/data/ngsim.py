@@ -25,55 +25,51 @@ class ngsim_data():
     self.veh_ordered_list = list()
 
   def read_from_csv(self, filename):
-    # format: Vehicle_ID Frame_ID Total_Frames Global_Time Local_X Local_Y Global_X Global_Y v_length v_Width v_Class v_Vel v_Acc Lane_ID	
-    # O_Zone D_Zone Int_ID Section_ID Direction Movement Preceding Following Space_Headway Time_Headway Location
-    f = open(filename, 'r')
-    line = f.readline()
+    # Use pandas for efficient CSV reading with chunking
+    chunksize = 100000  # Adjust based on your memory constraints
+    reader = pd.read_csv(filename, chunksize=chunksize)
+    
     print('Processing raw data...')
     counter = 0
     self.vr_dict = dict()
     self.snap_dict = dict()
     self.veh_dict = dict()
-
-    while(line):
-      if counter % 10000 == 0:
-        print(counter)
-        print(line)
-      if counter > 10000 and GLB_DEBUG:
-        break
-      line = f.readline().strip('\n').strip('\r').strip('\t')
-      if line == "":
-        continue
-      
-      words = line.split(',')
-      assert (len(words) == NUM_COLS)
-
-      if words[GLB_loc_colidx] == self.name:
-        tmp_vr = vehicle_record()
-        tmp_vr.build_from_raw(counter, line)
-        self.vr_dict[tmp_vr.ID] = tmp_vr
-        counter += 1
-
-        if tmp_vr.unixtime not in self.snap_dict.keys():
-          self.snap_dict[tmp_vr.unixtime] = snapshot(tmp_vr.unixtime)
-        self.snap_dict[tmp_vr.unixtime].add_vr(tmp_vr)
-
-        if tmp_vr.veh_ID not in self.veh_dict.keys():
-          self.veh_dict[tmp_vr.veh_ID] = vehicle(tmp_vr.veh_ID)
-        self.veh_dict[tmp_vr.veh_ID].add_vr(tmp_vr)
-
-    self.snap_ordered_list = list(self.snap_dict.keys())
-    self.veh_ordered_list = list(self.veh_dict.keys())
-    self.snap_ordered_list.sort()
-    self.veh_ordered_list.sort()
-
+    
+    # Process chunks in parallel if needed
+    for chunk in reader:
+        # Filter for the correct scene
+        chunk = chunk[chunk.iloc[:, GLB_loc_colidx] == self.name]
+        
+        # Process each row in the chunk
+        for _, row in chunk.iterrows():
+            counter += 1
+            if counter % 10000 == 0:
+                print(f"Processed {counter} records")
+                
+            # Create vehicle record
+            tmp_vr = vehicle_record()
+            tmp_vr.build_from_row(row)
+            self.vr_dict[tmp_vr.ID] = tmp_vr
+            
+            # Create snapshot if needed
+            if tmp_vr.unixtime not in self.snap_dict:
+                self.snap_dict[tmp_vr.unixtime] = snapshot(tmp_vr.unixtime)
+            self.snap_dict[tmp_vr.unixtime].add_vr(tmp_vr)
+            
+            # Create vehicle if needed
+            if tmp_vr.veh_ID not in self.veh_dict:
+                self.veh_dict[tmp_vr.veh_ID] = vehicle(tmp_vr.veh_ID)
+            self.veh_dict[tmp_vr.veh_ID].add_vr(tmp_vr)
+    
+    # Sort data
+    self.snap_ordered_list = sorted(self.snap_dict.keys())
+    self.veh_ordered_list = sorted(self.veh_dict.keys())
+    
     for tmp_unixtime, tmp_snap in self.snap_dict.items():
-      tmp_snap.sort_vehs()
-
+        tmp_snap.sort_vehs()
+    
     for tmp_vehID, tmp_veh in self.veh_dict.items():
-      tmp_veh.sort_time()
-
-    f.close()
+        tmp_veh.sort_time()
 
   def dump(self, folder, vr_filename = 'vehicle_record_file.csv', v_filename = 'vehicle_file.csv', snapshot_filename = 'snapshot_file.csv'):
     print('Dumping processed data...')
@@ -180,47 +176,47 @@ class vehicle_record():
     assert(len(words) == NUM_COLS)
 
     tz = pytz.timezone(timezone_dict[words[GLB_loc_colidx]])
-    self.veh_ID = np.int(words[GLB_vehID_colidx])
-    #self.frame_ID = np.int(words[GLB_frmID_colidx])
-    self.unixtime = np.int(words[GLB_glbtime_colidx]) 
-    self.time = datetime.datetime.fromtimestamp(np.float(self.unixtime) / 1000, tz)
-    self.x = np.float(words[GLB_locx_colidx])
-    self.y = np.float(words[GLB_locy_colidx])
-    self.lat = np.float(words[GLB_glbx_colidx])
-    self.lon = np.float(words[GLB_glby_colidx])
-    self.len = np.float(words[GLB_vehlen_colidx])
-    self.wid = np.float(words[GLB_vehwid_colidx])
-    self.cls = np.int(words[GLB_vehcls_colidx])
-    self.spd = np.float(words[GLB_vehspd_colidx])
-    self.acc = np.float(words[GLB_vehacc_colidx])
-    self.lane_ID = np.int(words[GLB_laneID_colidx])
-    #self.intersection_ID = np.int(words[GLB_interID_colidx])
-    self.pred_veh_ID = np.int(words[GLB_pred_colidx])
-    self.follow_veh_ID = np.int(words[GLB_follow_colidx])
-    self.shead = np.float(words[GLB_shead_colidx])
-    self.thead = np.float(words[GLB_thead_colidx])
+    self.veh_ID = int(words[GLB_vehID_colidx])
+    #self.frame_ID = int(words[GLB_frmID_colidx])
+    self.unixtime = int(words[GLB_glbtime_colidx]) 
+    self.time = datetime.datetime.fromtimestamp(float(self.unixtime) / 1000, tz)
+    self.x = float(words[GLB_locx_colidx])
+    self.y = float(words[GLB_locy_colidx])
+    self.lat = float(words[GLB_glbx_colidx])
+    self.lon = float(words[GLB_glby_colidx])
+    self.len = float(words[GLB_vehlen_colidx])
+    self.wid = float(words[GLB_vehwid_colidx])
+    self.cls = int(words[GLB_vehcls_colidx])
+    self.spd = float(words[GLB_vehspd_colidx])
+    self.acc = float(words[GLB_vehacc_colidx])
+    self.lane_ID = int(words[GLB_laneID_colidx])
+    #self.intersection_ID = int(words[GLB_interID_colidx])
+    self.pred_veh_ID = int(words[GLB_pred_colidx])
+    self.follow_veh_ID = int(words[GLB_follow_colidx])
+    self.shead = float(words[GLB_shead_colidx])
+    self.thead = float(words[GLB_thead_colidx])
 
   def build_from_processed(self, name, words):
     assert(len(words) == 17)
-    self.ID = np.int(words[0])
-    self.veh_ID = np.int(words[1])
-    self.unixtime = np.int(words[2])
+    self.ID = int(words[0])
+    self.veh_ID = int(words[1])
+    self.unixtime = int(words[2])
     tz = pytz.timezone(timezone_dict[name])
-    self.time = datetime.datetime.fromtimestamp(np.float(self.unixtime) / 1000, tz)
-    self.x = np.float(words[3])
-    self.y = np.float(words[4])
-    self.lat = np.float(words[5])
-    self.lon = np.float(words[6])
-    self.len = np.float(words[7])
-    self.wid = np.float(words[8])
-    self.cls = np.int(words[9])
-    self.spd = np.float(words[10])
-    self.acc = np.float(words[11])
-    self.lane_ID = np.int(words[12])
-    self.pred_veh_ID = np.int(words[13])
-    self.follow_veh_ID = np.int(words[14])
-    self.shead = np.float(words[15])
-    self.thead = np.float(words[16])
+    self.time = datetime.datetime.fromtimestamp(float(self.unixtime) / 1000, tz)
+    self.x = float(words[3])
+    self.y = float(words[4])
+    self.lat = float(words[5])
+    self.lon = float(words[6])
+    self.len = float(words[7])
+    self.wid = float(words[8])
+    self.cls = int(words[9])
+    self.spd = float(words[10])
+    self.acc = float(words[11])
+    self.lane_ID = int(words[12])
+    self.pred_veh_ID = int(words[13])
+    self.follow_veh_ID = int(words[14])
+    self.shead = float(words[15])
+    self.thead = float(words[16])
 
   def __str__(self):
     return ("Vehicle record: {}, vehicle ID: {}, unixtime: {}, time: {}, lane: {}, y: {}, x: {}".format(self.ID, self.veh_ID, self.unixtime, 
@@ -228,6 +224,27 @@ class vehicle_record():
 
   def __repr__(self):
     return self.__str__()
+
+  def build_from_row(self, row):
+    self.ID = row.name  # Using the index as ID
+    self.veh_ID = int(row.iloc[GLB_vehID_colidx])  # Changed from np.int
+    self.unixtime = int(row.iloc[GLB_glbtime_colidx])  # Changed from np.int
+    tz = pytz.timezone(timezone_dict[row.iloc[GLB_loc_colidx]])
+    self.time = datetime.datetime.fromtimestamp(float(self.unixtime) / 1000, tz)  # Also changed np.float to float
+    self.x = float(row.iloc[GLB_locx_colidx])  # Changed from np.float
+    self.y = float(row.iloc[GLB_locy_colidx])  # Changed from np.float
+    self.lat = float(row.iloc[GLB_glbx_colidx])  # Changed from np.float
+    self.lon = float(row.iloc[GLB_glby_colidx])  # Changed from np.float
+    self.len = float(row.iloc[GLB_vehlen_colidx])  # Changed from np.float
+    self.wid = float(row.iloc[GLB_vehwid_colidx])  # Changed from np.float
+    self.cls = int(row.iloc[GLB_vehcls_colidx])  # Changed from np.int
+    self.spd = float(row.iloc[GLB_vehspd_colidx])  # Changed from np.float
+    self.acc = float(row.iloc[GLB_vehacc_colidx])  # Changed from np.float
+    self.lane_ID = int(row.iloc[GLB_laneID_colidx])  # Changed from np.int
+    self.pred_veh_ID = int(row.iloc[GLB_pred_colidx])  # Changed from np.int
+    self.follow_veh_ID = int(row.iloc[GLB_follow_colidx])  # Changed from np.int
+    self.shead = float(row.iloc[GLB_shead_colidx])  # Changed from np.float
+    self.thead = float(row.iloc[GLB_thead_colidx])  # Changed from np.float
 
   def to_string(self):
     return ','.join([str(e) for e in [self.ID, self.veh_ID, self.unixtime, 
@@ -243,8 +260,8 @@ class snapshot():
 
   def build_from_processed(self, words, vr_dict):
     assert(len(words) > 1)
-    self.unixtime = np.int(words[0])
-    self.vr_list = list(map(lambda x: vr_dict[np.int(x)], words[1:]))
+    self.unixtime = int(words[0])
+    self.vr_list = list(map(lambda x: vr_dict[int(x)], words[1:]))
 
   def add_vr(self, vr):
     assert (vr.unixtime == self.unixtime)
@@ -270,8 +287,8 @@ class vehicle():
 
   def build_from_processed(self, words, vr_dict):
     assert(len(words) > 1)
-    self.veh_ID = np.int(words[0])
-    self.vr_list = list(map(lambda x: vr_dict[np.int(x)], words[1:]))
+    self.veh_ID = int(words[0])
+    self.vr_list = list(map(lambda x: vr_dict[int(x)], words[1:]))
 
   def add_vr(self, vr):
     assert (vr.veh_ID == self.veh_ID)
@@ -519,11 +536,11 @@ class monitor_center():
             tmp_l = sm.mesh_storage[i][j]
             detected_lane = tmp_l.intersection(self.detection_record[unixtime][lidar_vr][0])
             if (not detected_lane.is_empty) and detected_lane.length > 0:
-              tmp_portion = np.float(detected_lane.length) / np.float(tmp_l.length)
+              tmp_portion = float(detected_lane.length) / float(tmp_l.length)
               if tmp_portion > GLB_DETECT_TOL:
                 # print (tmp_portion)
                 if i in tmp_dict.keys() and j in tmp_dict[i].keys():
-                    m.mesh_storage[i][j][k][2].append(np.float(len(tmp_dict[i][j][k])))
+                    m.mesh_storage[i][j][k][2].append(float(len(tmp_dict[i][j][k])))
                     spd_list = list(filter(lambda x: x>0, map(lambda x: x.spd + x.spd * np.random.uniform(-1, 1) * self.spd_noise, tmp_dict[i][j][k])))
                     if len(spd_list) > 0:
                       m.mesh_storage[i][j][k][3].append(hmean(np.array(spd_list)))
@@ -608,10 +625,10 @@ class mesh():
     assert(unixtime >= self.min_time and unixtime <= self.max_time)
     assert(y >= self.min_space and y <= self.max_space)
     i = lane_ID
-    j = np.int((y - 0.001 - self.min_space) / (np.float(self.max_space - self.min_space)/np.float(self.num_spatial_cells)))
+    j = int((y - 0.001 - self.min_space) / (float(self.max_space - self.min_space)/float(self.num_spatial_cells)))
     # print (j, y, self.min_space, self.max_space,self.num_spatial_cells)
     assert (j < self.num_spatial_cells)
-    k = np.int((unixtime - 0.001 - self.min_time) / (np.float(self.max_time - self.min_time)/ np.float(self.num_temporal_cells)))
+    k = int((unixtime - 0.001 - self.min_time) / (float(self.max_time - self.min_time)/ float(self.num_temporal_cells)))
     assert (k < self.num_temporal_cells)
     return (i,j,k)
 
@@ -685,7 +702,7 @@ class mesh():
         for k in self.mesh_storage[i][j].keys():
           if len(self.mesh_storage[i][j][k][2]) and len(self.mesh_storage[i][j][k][3]) > 0:
             ave_k = (np.mean(np.array(self.mesh_storage[i][j][k][2])) 
-                      / (np.float(self.max_space - self.min_space)/ np.float(self.num_spatial_cells)))
+                      / (float(self.max_space - self.min_space)/ float(self.num_spatial_cells)))
             ave_v = np.mean(np.array(self.mesh_storage[i][j][k][3])) / 1000
             self.mesh_storage[i][j][k][4] = ave_k * ave_v#q, volue
             self.mesh_storage[i][j][k][5] = ave_k #k, density

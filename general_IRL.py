@@ -11,8 +11,8 @@ lam = 0.01
 feature_num = 8
 period = 0
 render_env = False
-vehicles = [2617, 148, 809, 1904, 241, 2204, 619, 2390, 1267, 1269, 1370, 80, 1908, 820, 2293, 2218, 1014, 1221, 2489, 2284]
-
+# vehicles = [2617, 148, 809, 1904, 241, 2204, 619, 2390, 1267, 1269, 1370, 80, 1908, 820, 2293, 2218, 1014, 1221, 2489, 2284]
+vehicles = [2617]
 # create training log
 with open('general_training_log.csv', 'w') as csvfile:       
     csvwriter = csv.writer(csvfile)
@@ -155,7 +155,7 @@ for iteration in range(n_iters):
         
     # compute gradient
     grad = human_feature_exp - feature_exp - 2*lam*theta
-    grad = np.array(grad, dtype=np.float)
+    grad = np.array(grad, dtype=float)
 
     # update weights
     if pm is None:

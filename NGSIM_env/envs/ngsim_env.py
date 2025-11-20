@@ -1,5 +1,5 @@
 from __future__ import division, print_function, absolute_import
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 import numpy as np
 
 from NGSIM_env import utils

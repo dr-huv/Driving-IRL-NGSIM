@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import pygame
-from gym.spaces import Discrete
+from gymnasium.spaces import Discrete
 
 from NGSIM_env.road.graphics import WorldSurface, RoadGraphics
 from NGSIM_env.vehicle.graphics import VehicleGraphics
