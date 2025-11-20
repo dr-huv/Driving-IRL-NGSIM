@@ -1,8 +1,8 @@
 from __future__ import division, print_function, absolute_import
 import copy
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium
+from gymnasium import spaces
+from gymnasium.utils import seeding
 
 from NGSIM_env import utils
 from NGSIM_env.envs.common.observation import observation_factory
@@ -13,7 +13,7 @@ from NGSIM_env.vehicle.control import MDPVehicle
 from NGSIM_env.vehicle.dynamics import Obstacle
 
 
-class AbstractEnv(gym.Env):
+class AbstractEnv(gymnasium.Env):
     """
     A generic environment for various tasks involving a vehicle driving on a road.
 

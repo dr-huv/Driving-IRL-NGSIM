@@ -1,6 +1,6 @@
 from __future__ import division, print_function, absolute_import
 import pandas
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 
 from NGSIM_env import utils
@@ -166,19 +166,21 @@ class KinematicObservation(ObservationType):
                                                          see_behind=see_behind)
         if close_vehicles:
             origin = self.env.vehicle if not self.absolute else None
-            df = df.append(pandas.DataFrame.from_records(
+            new_df = pandas.DataFrame.from_records(
                 [v.to_dict(origin, observe_intentions=self.observe_intentions)
-                 for v in close_vehicles[-self.vehicles_count + 1:]])[self.features], ignore_index=True)
-        
+                 for v in close_vehicles[-self.vehicles_count + 1:]])[self.features]
+            df = pandas.concat([df, new_df], ignore_index=True)        
         # Normalize
         if self.normalize:
             df = self.normalize_obs(df)
 
         # Fill missing rows
+                # Fill missing rows
         if df.shape[0] < self.vehicles_count:
             rows = np.zeros((self.vehicles_count - df.shape[0], len(self.features)))
-            df = df.append(pandas.DataFrame(data=rows, columns=self.features), ignore_index=True)
-        
+            new_df = pandas.DataFrame(data=rows, columns=self.features)
+            df = pandas.concat([df, new_df], ignore_index=True)
+                    
         # Reorder
         df = df[self.features]
         obs = df.values.copy()
@@ -215,7 +217,7 @@ class OccupancyGridObservation(ObservationType):
         self.features = features
         self.grid_size = np.array(grid_size)
         self.grid_step = np.array(grid_step)
-        grid_shape = np.asarray(np.floor((self.grid_size[:, 1] - self.grid_size[:, 0]) / grid_step), dtype=np.int)
+        grid_shape = np.asarray(np.floor((self.grid_size[:, 1] - self.grid_size[:, 0]) / grid_step), dtype=int)
         self.grid = np.zeros((len(self.features), *grid_shape))
         self.features_range = features_range
         self.absolute = absolute
